@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "Node16",
+    "lib": ["ES2021"],
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node16",
+    "types": ["node"]
+  },
+  "include": ["api/**/*", "tests/**/*", "test-*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+

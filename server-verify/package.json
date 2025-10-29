@@ -1,0 +1,31 @@
+{
+  "name": "wba-quickstart",
+  "version": "1.0.0",
+  "description": "Web Bot Auth Verification with Vercel Functions",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test:invalid": "tsx tests/test-invalid-requests.ts",
+    "test:signed": "tsx tests/test-signed-request.ts",
+    "test:signature-agent": "tsx tests/test-signature-agent-validation.ts",
+    "test:timestamps": "tsx tests/test-timestamp-validation.ts",
+    "test": "npm run test:invalid && npm run test:signature-agent && npm run test:timestamps && npm run test:signed"
+  },
+  "keywords": [
+    "web-bot-auth",
+    "verification",
+    "vercel"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "web-bot-auth": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@vercel/node": "^3.0.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.3.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/public/index.html"
+    },
+    {
+      "source": "/.well-known/http-message-signatures-directory",
+      "destination": "/api/test-directory"
+    }
+  ]
+}
+
