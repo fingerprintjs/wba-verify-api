@@ -1,13 +1,21 @@
 {
-  "rewrites": [
+  "routes": [
     {
-      "source": "/",
-      "destination": "/public/index.html"
+      "src": "^/$",
+      "methods": ["GET"],
+      "dest": "/api/app"
     },
     {
-      "source": "/.well-known/http-message-signatures-directory",
-      "destination": "/api/test-directory"
+      "src": "^/api/verify$",
+      "dest": "/api/verify"
+    },
+    {
+      "src": "^/\\.well-known/http-message-signatures-directory$",
+      "dest": "/api/test-directory"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ]
 }
-

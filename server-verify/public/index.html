@@ -369,6 +369,17 @@
                     and verifies cryptographic signatures using the Ed25519 algorithm. 
                     Since browser requests don't include these headers, you'll see an error response by default. 
                 </p>
+                <h4 style="margin-top: 20px;">API Access</h4>
+                <p>
+                    This endpoint supports smart content negotiation. When you make a request with <code>Accept: application/json</code> header 
+                    (e.g., using curl or any API client), you'll get a JSON response instead of this HTML page. This allows the same endpoint 
+                    to serve both human-readable documentation and programmatic API responses.
+                </p>
+                <pre style="background: #f1f5f9; color: #1e293b; padding: 16px; border-radius: 8px; font-size: 0.875rem; overflow-x: auto; margin-top: 12px;">curl -H "Accept: application/json" \
+     -H "Signature: sig1=:..." \
+     -H "Signature-Input: sig1=..." \
+     -H "Signature-Agent: https://chatgpt.com" \
+     https://wba-quickstart.vercel.app</pre>
             </div>
         </div>
     </div>

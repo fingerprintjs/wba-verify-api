@@ -44,7 +44,7 @@ const testCases: TestCase[] = [
       'Signature-Input': `sig1=();created=${Math.floor(Date.now() / 1000)};expires=${Math.floor(Date.now() / 1000) + 300};keyid="test-key-ed25519"`,
     },
     expectedStatus: 400,
-    expectedErrorCode: 'MISSING_SIGNATURE_AGENT',
+    expectedErrorCode: 'MISSING_SIGNATURE_HEADERS',
   },
   {
     name: 'Invalid signature with valid headers',
@@ -54,7 +54,7 @@ const testCases: TestCase[] = [
       'Signature-Agent': 'https://example.com',
     },
     expectedStatus: 400,
-    expectedErrorCode: 'DIRECTORY_FETCH_FAILED',
+    expectedErrorCode: 'KEY_DIRECTORY_FETCH_FAILED',
   },
 ];
 

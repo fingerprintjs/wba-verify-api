@@ -7,6 +7,7 @@ A Web Bot Authentication (WBA) verification implementation using Vercel Function
 This project demonstrates cryptographic verification of Web Bot Authentication requests following [RFC 9421 HTTP Message Signatures](https://datatracker.ietf.org/doc/html/rfc9421) and the [Cloudflare Web Bot Auth specification](https://github.com/cloudflare/web-bot-auth).
 
 Features:
+- **Smart Content Negotiation**: Serves HTML to browsers, JSON API to API clients
 - Real cryptographic signature verification using Ed25519 algorithm
 - Trust-on-first-use validation with automatic key directory fetching
 - RFC 9421 test keys for immediate testing
@@ -43,6 +44,29 @@ vercel dev
 
 Server starts at `http://localhost:3000`
 
+## Usage
+
+### Browser Access
+
+Visit the page in your browser to access the interactive HTML interface for testing Web Bot Auth signatures.
+
+### API Access
+
+Make requests with `Accept: application/json` header to get JSON responses:
+
+```bash
+# GET request with signature headers
+curl -H "Accept: application/json" \
+     -H "Signature: sig1=:..." \
+     -H "Signature-Input: sig1=..." \
+     -H "Signature-Agent: https://example.com" \
+     https://wba-quickstart.vercel.app
+```
+
+**Content Negotiation:**
+- **Browser requests** (without `Accept: application/json`) → Returns HTML interface
+- **API requests** (with `Accept: application/json`) → Returns JSON verification response
+
 ## Testing
 
 ### Running all tests
@@ -74,6 +98,12 @@ Web Bot Auth uses HTTP Message Signatures (RFC 9421), not custom headers. Valid 
 
 ### Verification Flow
 
+**Content Negotiation (Root `/`):**
+1. Check `Accept` header
+2. If `Accept: application/json` → proceed to verification
+3. Otherwise → serve HTML interface
+
+**Signature Verification:**
 1. Extract `Signature`, `Signature-Input`, and `Signature-Agent` headers
 2. Extract public key directory URL from `Signature-Agent` header
 3. Fetch public key directory with caching (1-hour TTL)
@@ -84,31 +114,36 @@ Web Bot Auth uses HTTP Message Signatures (RFC 9421), not custom headers. Valid 
 
 ## API Reference
 
-### Endpoint: `GET /api/verify`
+### Root Endpoint: `GET /` with Content Negotiation
 
-Modern verification endpoint with trust-on-first-use validation and automatic key directory fetching.
+The root endpoint supports smart content negotiation:
+- **Browser requests** (no `Accept: application/json` header) → Returns HTML interface
+- **API requests** (with `Accept: application/json` header) → Returns JSON verification response (same as `/api/verify`)
+
+### Endpoint: `POST /api/verify`
+
+Direct API endpoint for verification (always returns JSON, regardless of Accept header).
 
 **Required Headers:**
 - `Signature`: The HTTP Message Signature
 - `Signature-Input`: Signature metadata (keyid, created, expires, etc.)
 - `Signature-Agent`: Domain to fetch the public key directory from
 
-**Success Response (200)**
+**Success Response (200)** - Same for both `/` (with JSON Accept header) and `/api/verify`
 
 ```json
 {
   "status": "success",
   "details": {
     "method": "GET",
-    "url": "/api/verify",
+    "url": "/",
     "headers": {
       "signature": "sig1=:...",
-      "signature-agent": "\"https://example-ai-agent.com\"",
       "signature-input": "sig1=(...)..."
     },
     "timestamp": "2025-10-28T15:43:21.324Z",
     "keyId": "test-key-ed25519",
-    "keySource": "directory: https://example-ai-agent/.well-known/http-message-signatures-directory"
+    "keySource": "directory: https://example-ai-agent.com/.well-known/http-message-signatures-directory"
   }
 }
 ```
