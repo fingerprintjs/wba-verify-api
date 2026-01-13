@@ -311,7 +311,7 @@ export default async function handler(
   res: VercelResponse
 ) {
   // ---------------------------------------------------------------------------
-  // CORS headers
+  // CORS headers -
   // ---------------------------------------------------------------------------
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
