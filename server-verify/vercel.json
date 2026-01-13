@@ -1,8 +1,9 @@
 {
+  "buildCommand": "npm run build",
   "rewrites": [
     {
       "source": "/",
-      "destination": "/public/index.html"
+      "destination": "/index.html"
     },
     {
       "source": "/.well-known/http-message-signatures-directory",
