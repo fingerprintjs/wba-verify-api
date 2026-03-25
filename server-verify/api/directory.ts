@@ -3,10 +3,37 @@
  * Implements Step 1 of the validation flow: fetch the directory with signature-agent
  */
 
-import type { SignaturesDirectory, DirectoryResult, JWK } from "./types" 
+import type { SignaturesDirectory, DirectoryResult, JWK } from "./types";
+
+/** Required Content-Type for HTTP Message Signatures directory JSON (see spec / interop). */
+export const HTTP_MESSAGE_SIGNATURES_DIRECTORY_JSON =
+  "application/http-message-signatures-directory+json";
 
 // In-memory cache for directory results
 const directoryCache = new Map<string, { data: SignaturesDirectory; timestamp: number }>();
+
+/**
+ * Validates the directory response Content-Type (media type only; parameters like charset allowed).
+ */
+export function validateDirectoryResponseContentType(
+  contentTypeHeader: string | null
+): { ok: true } | { ok: false; error: string } {
+  if (contentTypeHeader == null || contentTypeHeader.trim() === "") {
+    return {
+      ok: false,
+      error: `Missing Content-Type header (expected ${HTTP_MESSAGE_SIGNATURES_DIRECTORY_JSON})`,
+    };
+  }
+  const mediaType = contentTypeHeader.split(";")[0].trim().toLowerCase();
+  const expected = HTTP_MESSAGE_SIGNATURES_DIRECTORY_JSON.toLowerCase();
+  if (mediaType !== expected) {
+    return {
+      ok: false,
+      error: `Invalid Content-Type: expected ${HTTP_MESSAGE_SIGNATURES_DIRECTORY_JSON}, got ${contentTypeHeader.trim()}`,
+    };
+  }
+  return { ok: true };
+}
 
 /**
  * Fetches the HTTP Message Signatures directory from the specified URL
@@ -41,7 +68,7 @@ export async function fetchSignaturesDirectory(
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        Accept: "application/json",
+        Accept: `${HTTP_MESSAGE_SIGNATURES_DIRECTORY_JSON}, application/json;q=0.5`,
         "User-Agent": "fingerprint.com-wba-validator/1.0",
       },
       signal: controller.signal,
@@ -53,6 +80,17 @@ export async function fetchSignaturesDirectory(
       return {
         success: false,
         error: `Failed to fetch directory: ${response.status} ${response.statusText}`,
+        url,
+        timestamp,
+      };
+    }
+
+    const ctCheck = validateDirectoryResponseContentType(response.headers.get("content-type"));
+    if (!ctCheck.ok) {
+      return {
+        success: false,
+        error: ctCheck.error,
+        errorCode: "INVALID_DIRECTORY_CONTENT_TYPE",
         url,
         timestamp,
       };

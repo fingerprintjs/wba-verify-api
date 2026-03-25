@@ -27,7 +27,10 @@ export default async function handler(
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader(
+    'Content-Type',
+    'application/http-message-signatures-directory+json; charset=utf-8'
+  );
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();

@@ -31,13 +31,15 @@ async function testSignedRequest(baseUrl: string) {
     // Parse URL to get components
     const url = new URL(`${baseUrl}/api/verify`);
     
-    // Create request object for signing
+    // Create request object for signing (must include signature-agent so web-bot-auth
+    // covers "@authority" and "signature-agent", matching server Signature-Input validation)
     const requestToSign = {
       method: 'GET',
       url: url.toString(),
       headers: {
         'host': url.host,
         'content-type': 'application/json',
+        'signature-agent': baseUrl,
       },
     };
 

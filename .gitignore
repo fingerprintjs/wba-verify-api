@@ -39,3 +39,4 @@ coverage/
 
 .vercel
 .vscode
+.env*.local

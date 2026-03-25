@@ -44,10 +44,29 @@ export interface JWK {
   }
   
   /**
+   * Error codes returned by validateWebBotAuth (HTTP handler maps these to API responses)
+   */
+  export type ValidationErrorCode =
+    | 'MISSING_SIGNATURE_HEADERS'
+    | 'INVALID_SIGNATURE_INPUT'
+    | 'SIGNATURE_EXPIRED'
+    | 'SIGNATURE_TOO_OLD'
+    | 'SIGNATURE_TIMESTAMP_FUTURE'
+    | 'VALIDATION_FAILED'
+    | 'KEY_DIRECTORY_FETCH_FAILED'
+    | 'INVALID_DIRECTORY_CONTENT_TYPE'
+    | 'KEY_EXPIRED'
+    | 'KEY_NOT_YET_VALID'
+    | 'KEY_NOT_FOUND'
+    | 'VERIFICATION_FAILED';
+
+  /**
    * Validation result structure
    */
   export interface ValidationResult {
     isValid: boolean;
+    /** Set on every failed validation */
+    errorCode?: ValidationErrorCode;
     error?: string;
     details?: {
       signatureFound: boolean;
@@ -69,6 +88,8 @@ export interface JWK {
     success: boolean;
     directory?: SignaturesDirectory;
     error?: string;
+    /** When success is false, optional machine-readable reason (e.g. wrong Content-Type) */
+    errorCode?: ValidationErrorCode;
     url: string;
     timestamp: number;
   }
