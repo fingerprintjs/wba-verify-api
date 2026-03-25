@@ -5,6 +5,8 @@
  * Run with: npm run test:invalid
  */
 
+import { webBotAuthSignatureInput } from './signature-input-fixtures';
+
 interface TestCase {
   name: string;
   headers: Record<string, string>;
@@ -24,7 +26,11 @@ const testCases: TestCase[] = [
   {
     name: 'Missing Signature header',
     headers: {
-      'Signature-Input': 'sig1=();created=1234567890;keyid="test-key-ed25519"',
+      'Signature-Input': webBotAuthSignatureInput({
+        createdSec: 1234567890,
+        expiresSec: 1234568190,
+        keyid: 'test-key-ed25519',
+      }),
     },
     expectedStatus: 400,
     expectedErrorCode: 'MISSING_SIGNATURE_HEADERS',
@@ -41,20 +47,63 @@ const testCases: TestCase[] = [
     name: 'Missing Signature-Agent header',
     headers: {
       'Signature': 'sig1=:invalidsignature:',
-      'Signature-Input': `sig1=();created=${Math.floor(Date.now() / 1000)};expires=${Math.floor(Date.now() / 1000) + 300};keyid="test-key-ed25519"`,
+      'Signature-Input': webBotAuthSignatureInput({
+        createdSec: Math.floor(Date.now() / 1000),
+        expiresSec: Math.floor(Date.now() / 1000) + 300,
+        keyid: 'test-key-ed25519',
+      }),
     },
     expectedStatus: 400,
     expectedErrorCode: 'MISSING_SIGNATURE_AGENT',
   },
   {
-    name: 'Invalid signature with valid headers',
+    name: 'Key directory fetch fails (example.com Signature-Agent)',
     headers: {
       'Signature': 'sig1=:invalidsignature:',
-      'Signature-Input': `sig1=();created=${Math.floor(Date.now() / 1000)};expires=${Math.floor(Date.now() / 1000) + 300};keyid="test-key-ed25519"`,
+      'Signature-Input': webBotAuthSignatureInput({
+        createdSec: Math.floor(Date.now() / 1000),
+        expiresSec: Math.floor(Date.now() / 1000) + 300,
+        keyid: 'test-key-ed25519',
+      }),
       'Signature-Agent': 'https://example.com',
     },
     expectedStatus: 400,
-    expectedErrorCode: 'DIRECTORY_FETCH_FAILED',
+    expectedErrorCode: 'KEY_DIRECTORY_FETCH_FAILED',
+  },
+  {
+    name: 'Signature-Input: empty covered components',
+    headers: {
+      'Signature': 'sig1=:dummysignature:',
+      'Signature-Input': `sig1=();created=${Math.floor(Date.now() / 1000)};expires=${Math.floor(Date.now() / 1000) + 300};keyid="kid";alg="ed25519";nonce="n";tag="web-bot-auth"`,
+      'Signature-Agent': 'http://localhost:3000',
+    },
+    expectedStatus: 400,
+    expectedErrorCode: 'INVALID_SIGNATURE_INPUT',
+  },
+  {
+    name: 'Signature-Input: tag is not web-bot-auth',
+    headers: {
+      'Signature': 'sig1=:dummysignature:',
+      'Signature-Input': webBotAuthSignatureInput({
+        createdSec: Math.floor(Date.now() / 1000),
+        expiresSec: Math.floor(Date.now() / 1000) + 300,
+        keyid: 'test-key-ed25519',
+        tag: 'wrong-tag',
+      }),
+      'Signature-Agent': 'http://localhost:3000',
+    },
+    expectedStatus: 400,
+    expectedErrorCode: 'INVALID_SIGNATURE_INPUT',
+  },
+  {
+    name: 'Signature-Input: unquoted covered component',
+    headers: {
+      'Signature': 'sig1=:dummysignature:',
+      'Signature-Input': `sig1=(@authority "signature-agent");created=${Math.floor(Date.now() / 1000)};expires=${Math.floor(Date.now() / 1000) + 300};keyid="kid";alg="ed25519";nonce="Mj311bOYjyItNPeGy0GYLA==";tag="web-bot-auth"`,
+      'Signature-Agent': 'http://localhost:3000',
+    },
+    expectedStatus: 400,
+    expectedErrorCode: 'INVALID_SIGNATURE_INPUT',
   },
 ];
 

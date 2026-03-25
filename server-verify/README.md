@@ -131,17 +131,20 @@ Modern verification endpoint with trust-on-first-use validation and automatic ke
 
 | Code | Status | Description |
 |------|--------|-------------|
-| `MISSING_SIGNATURE_HEADERS` | 400 | Required headers (`Signature`, `Signature-Input`, or `Signature-Agent`) are missing |
+| `MISSING_SIGNATURE_HEADERS` | 400 | Missing required signature headers (except when only `Signature-Agent` is missing; see `MISSING_SIGNATURE_AGENT`) |
+| `MISSING_SIGNATURE_AGENT` | 400 | `Signature` and `Signature-Input` are present but `Signature-Agent` is missing |
 | `INVALID_SIGNATURE_AGENT` | 400 | Signature-Agent header is malformed or invalid (must be HTTPS root domain) |
+| `INVALID_SIGNATURE_INPUT` | 400 | `Signature-Input` does not match the web-bot-auth profile (any `label=(...);...` before parameters; quoted covered components `@authority` and `signature-agent`; `tag="web-bot-auth"`; `alg="ed25519"`; quoted `keyid`/`nonce`; unquoted `created`/`expires`, etc.) |
 | `SIGNATURE_EXPIRED` | 400 | Signature has expired (current time is past the `expires` parameter) |
 | `SIGNATURE_TOO_OLD` | 400 | Signature created timestamp is too old (created more than 1 hour ago) |
 | `SIGNATURE_TIMESTAMP_FUTURE` | 400 | Signature created timestamp is too far in the future (more than 5 minutes ahead) |
 | `KEY_DIRECTORY_FETCH_FAILED` | 400 | Failed to fetch key directory from signature-agent URL |
+| `INVALID_DIRECTORY_CONTENT_TYPE` | 400 | Directory response must use `Content-Type: application/http-message-signatures-directory+json` (parameters such as `charset` are allowed) |
 | `KEY_EXPIRED` | 400 | JWK has expired (current time is past the key's `exp` field) |
 | `KEY_NOT_YET_VALID` | 400 | JWK is not yet valid (current time is before the key's `nbf` field) |
 | `KEY_NOT_FOUND` | 400 | No matching key found in directory for the provided `keyid` |
 | `VERIFICATION_FAILED` | 400 | Cryptographic signature verification failed |
-| `VALIDATION_FAILED` | 400 | Generic validation failure (catch-all) |
+| `VALIDATION_FAILED` | 400 | Generic validation failure (e.g. malformed `created`/`expires` in `Signature-Input`, purpose mismatch, or unexpected server-side error) |
 | `INTERNAL_ERROR` | 500 | Internal server error |
 
 ## License

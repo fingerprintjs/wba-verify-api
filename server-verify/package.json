@@ -9,7 +9,9 @@
     "test:signed": "tsx tests/test-signed-request.ts",
     "test:signature-agent": "tsx tests/test-signature-agent-validation.ts",
     "test:timestamps": "tsx tests/test-timestamp-validation.ts",
-    "test": "npm run test:invalid && npm run test:signature-agent && npm run test:timestamps && npm run test:signed"
+    "test:signature-input": "tsx tests/test-signature-input-format.ts",
+    "test:directory-content-type": "tsx tests/test-directory-content-type.ts",
+    "test": "npm run test:signature-input && npm run test:directory-content-type && npm run test:invalid && npm run test:signature-agent && npm run test:timestamps && npm run test:signed"
   },
   "keywords": [
     "web-bot-auth",

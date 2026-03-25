@@ -9,6 +9,8 @@
  * Run with: npm run test:timestamps
  */
 
+import { webBotAuthSignatureInput } from './signature-input-fixtures';
+
 interface TestCase {
   name: string;
   signatureInput: string;
@@ -19,25 +21,41 @@ interface TestCase {
 const testCases: TestCase[] = [
   {
     name: 'Expired signature (expires in past)',
-    signatureInput: `sig1=();created=${Math.floor(Date.now() / 1000)};expires=${Math.floor(Date.now() / 1000) - 100};keyid="test-key-ed25519"`,
+    signatureInput: webBotAuthSignatureInput({
+      createdSec: Math.floor(Date.now() / 1000),
+      expiresSec: Math.floor(Date.now() / 1000) - 100,
+      keyid: 'test-key-ed25519',
+    }),
     expectedError: 'expired',
     expectedErrorCode: 'SIGNATURE_EXPIRED',
   },
   {
     name: 'Signature created too far in future',
-    signatureInput: `sig1=();created=${Math.floor(Date.now() / 1000) + 3600};expires=${Math.floor(Date.now() / 1000) + 7200};keyid="test-key-ed25519"`,
+    signatureInput: webBotAuthSignatureInput({
+      createdSec: Math.floor(Date.now() / 1000) + 3600,
+      expiresSec: Math.floor(Date.now() / 1000) + 7200,
+      keyid: 'test-key-ed25519',
+    }),
     expectedError: 'too far in the future',
     expectedErrorCode: 'SIGNATURE_TIMESTAMP_FUTURE',
   },
   {
     name: 'Signature created too old (> 1 hour)',
-    signatureInput: `sig1=();created=${Math.floor(Date.now() / 1000) - 7200};expires=${Math.floor(Date.now() / 1000) + 300};keyid="test-key-ed25519"`,
+    signatureInput: webBotAuthSignatureInput({
+      createdSec: Math.floor(Date.now() / 1000) - 7200,
+      expiresSec: Math.floor(Date.now() / 1000) + 300,
+      keyid: 'test-key-ed25519',
+    }),
     expectedError: 'too old',
     expectedErrorCode: 'SIGNATURE_TOO_OLD',
   },
   {
     name: 'Valid timestamps (created now, expires in 5 min)',
-    signatureInput: `sig1=();created=${Math.floor(Date.now() / 1000)};expires=${Math.floor(Date.now() / 1000) + 300};keyid="test-key-ed25519"`,
+    signatureInput: webBotAuthSignatureInput({
+      createdSec: Math.floor(Date.now() / 1000),
+      expiresSec: Math.floor(Date.now() / 1000) + 300,
+      keyid: 'test-key-ed25519',
+    }),
     expectedError: '', // Should pass timestamp validation (may fail on other checks)
     expectedErrorCode: '', // Not testing this case for specific error
   },

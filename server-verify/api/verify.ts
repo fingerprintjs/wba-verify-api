@@ -8,7 +8,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verify } from "web-bot-auth";
 import { verifierFromJWK } from "web-bot-auth/crypto";
 import { fetchSignaturesDirectory, findKeyById, validateSignatureAgent } from "./directory";
-import type { ValidationResult, ValidationConfig, SignaturesDirectory, SignatureComponents, JWK } from "./types";
+import { validateSignatureInputFormat } from "./signature-input";
+import type {
+  ValidationResult,
+  ValidationConfig,
+  ValidationErrorCode,
+  SignaturesDirectory,
+  SignatureComponents,
+  JWK,
+} from "./types";
 
 /**
  * Main validation function that implements the complete two-step flow:
@@ -33,17 +41,30 @@ export async function validateWebBotAuth(request: Request, config: ValidationCon
     if (!signatureComponents) {
       return {
         isValid: false,
+        errorCode: 'MISSING_SIGNATURE_HEADERS',
         error: "No HTTP Message Signature headers found",
         details,
       };
     }
     details.signatureFound = true;
 
+    // Step 1.25: Signature-Input structure (web-bot-auth profile: quoted covered components, tag, etc.)
+    const signatureInputFormat = validateSignatureInputFormat(signatureComponents.signatureInput);
+    if (!signatureInputFormat.isValid) {
+      return {
+        isValid: false,
+        errorCode: 'INVALID_SIGNATURE_INPUT',
+        error: signatureInputFormat.error || 'Invalid Signature-Input header',
+        details,
+      };
+    }
+
     // Step 1.5: Validate signature timestamps (RFC 9421 Section 3.3)
     const timestampValidation = validateSignatureTimestamps(signatureComponents);
     if (!timestampValidation.isValid) {
       return {
         isValid: false,
+        errorCode: timestampValidation.errorCode ?? 'VALIDATION_FAILED',
         error: timestampValidation.error || "Signature timestamp validation failed",
         details,
       };
@@ -54,6 +75,8 @@ export async function validateWebBotAuth(request: Request, config: ValidationCon
     if (!directoryResult.success || !directoryResult.directory) {
       return {
         isValid: false,
+        errorCode:
+          directoryResult.errorCode ?? directoryFetchErrorCode(directoryResult.error),
         error: `Failed to fetch signatures directory: ${directoryResult.error}`,
         details,
       };
@@ -65,6 +88,7 @@ export async function validateWebBotAuth(request: Request, config: ValidationCon
     if (!key) {
       return {
         isValid: false,
+        errorCode: 'KEY_NOT_FOUND',
         error: `No matching key found for kid: ${signatureComponents.keyId}`,
         details,
       };
@@ -76,6 +100,7 @@ export async function validateWebBotAuth(request: Request, config: ValidationCon
     if (!signatureValid) {
       return {
         isValid: false,
+        errorCode: 'VERIFICATION_FAILED',
         error: "Signature verification failed",
         details: { ...details, signatureValid: false },
       };
@@ -86,6 +111,7 @@ export async function validateWebBotAuth(request: Request, config: ValidationCon
     if (config.purpose && directoryResult.directory.purpose !== config.purpose) {
       return {
         isValid: false,
+        errorCode: 'VALIDATION_FAILED',
         error: `Purpose mismatch: expected "${config.purpose}", got "${directoryResult.directory.purpose}"`,
         details: { ...details, signatureValid: true },
       };
@@ -103,10 +129,22 @@ export async function validateWebBotAuth(request: Request, config: ValidationCon
   } catch (error) {
     return {
       isValid: false,
+      errorCode: 'VALIDATION_FAILED',
       error: `Validation error: ${error instanceof Error ? error.message : String(error)}`,
       details,
     };
   }
+}
+
+function directoryFetchErrorCode(nestedError: string | undefined): ValidationErrorCode {
+  const msg = nestedError || '';
+  if (msg.includes('Key has expired')) {
+    return 'KEY_EXPIRED';
+  }
+  if (msg.includes('Key is not yet valid')) {
+    return 'KEY_NOT_YET_VALID';
+  }
+  return 'KEY_DIRECTORY_FETCH_FAILED';
 }
 
 /**
@@ -115,23 +153,32 @@ export async function validateWebBotAuth(request: Request, config: ValidationCon
  * - created: Must not be too far in the past or future
  *
  * @param components - Extracted signature components
- * @returns Validation result with error message if invalid
+ * @returns Validation result with error message and code if invalid
  */
-function validateSignatureTimestamps(components: SignatureComponents): { isValid: boolean; error?: string } {
+function validateSignatureTimestamps(components: SignatureComponents): {
+  isValid: boolean;
+  error?: string;
+  errorCode?: ValidationErrorCode;
+} {
   const now = Math.floor(Date.now() / 1000); // Current time in Unix seconds
 
   // RFC 9421 Section 3.3: Validate expires parameter
   if (components.expires) {
     const expiresTime = parseInt(components.expires, 10);
     if (isNaN(expiresTime)) {
-      return { isValid: false, error: "Invalid expires timestamp format" };
+      return {
+        isValid: false,
+        errorCode: 'VALIDATION_FAILED',
+        error: "Invalid expires timestamp format",
+      };
     }
-    
+
     if (expiresTime <= now) {
       const expiredDate = new Date(expiresTime * 1000).toISOString();
-      return { 
-        isValid: false, 
-        error: `Signature has expired (expired at ${expiredDate}, current time is ${new Date(now * 1000).toISOString()})` 
+      return {
+        isValid: false,
+        errorCode: 'SIGNATURE_EXPIRED',
+        error: `Signature has expired (expired at ${expiredDate}, current time is ${new Date(now * 1000).toISOString()})`,
       };
     }
   }
@@ -140,24 +187,30 @@ function validateSignatureTimestamps(components: SignatureComponents): { isValid
   if (components.created) {
     const createdTime = parseInt(components.created, 10);
     if (isNaN(createdTime)) {
-      return { isValid: false, error: "Invalid created timestamp format" };
+      return {
+        isValid: false,
+        errorCode: 'VALIDATION_FAILED',
+        error: "Invalid created timestamp format",
+      };
     }
 
     // Reject if created time is more than 5 minutes in the future
     const maxFutureSkew = 300; // 5 minutes
     if (createdTime > now + maxFutureSkew) {
-      return { 
-        isValid: false, 
-        error: `Signature created timestamp is too far in the future (created: ${new Date(createdTime * 1000).toISOString()}, current: ${new Date(now * 1000).toISOString()})` 
+      return {
+        isValid: false,
+        errorCode: 'SIGNATURE_TIMESTAMP_FUTURE',
+        error: `Signature created timestamp is too far in the future (created: ${new Date(createdTime * 1000).toISOString()}, current: ${new Date(now * 1000).toISOString()})`,
       };
     }
 
     // Reject if created time is more than 1 hour in the past
     const maxAgeSeconds = 3600; // 1 hour
     if (createdTime < now - maxAgeSeconds) {
-      return { 
-        isValid: false, 
-        error: `Signature created timestamp is too old (created: ${new Date(createdTime * 1000).toISOString()}, max age: 1 hour)` 
+      return {
+        isValid: false,
+        errorCode: 'SIGNATURE_TOO_OLD',
+        error: `Signature created timestamp is too old (created: ${new Date(createdTime * 1000).toISOString()}, max age: 1 hour)`,
       };
     }
   }
@@ -333,10 +386,17 @@ export default async function handler(
     const signatureInputHeader = req.headers['signature-input'];
     const signatureAgentHeader = req.headers['signature-agent'];
 
-    if (!signatureHeader || !signatureInputHeader || !signatureAgentHeader) {
+    const hasSignature = !!signatureHeader;
+    const hasSignatureInput = !!signatureInputHeader;
+    const hasSignatureAgent = !!signatureAgentHeader;
+
+    if (!hasSignature || !hasSignatureInput || !hasSignatureAgent) {
+      const missingOnlyAgent = hasSignature && hasSignatureInput && !hasSignatureAgent;
       errors.push({
-        code: 'MISSING_SIGNATURE_HEADERS',
-        message: 'Required headers `Signature`, `Signature-Input`, and `Signature-Agent` are missing'
+        code: missingOnlyAgent ? 'MISSING_SIGNATURE_AGENT' : 'MISSING_SIGNATURE_HEADERS',
+        message: missingOnlyAgent
+          ? 'Required header `Signature-Agent` is missing'
+          : 'Required headers `Signature`, `Signature-Input`, and `Signature-Agent` are missing'
       });
       res.status(400).json({
         status: 'error',
@@ -391,7 +451,7 @@ export default async function handler(
 
     const validationResult = await validateWebBotAuth(requestForVerification, config);
 
-    // Step 7: Map ValidationResult to VerificationResponse format
+    // Step 7: Build VerificationResponse from ValidationResult
     if (validationResult.isValid) {
       // Success response
       res.status(200).json({
@@ -414,31 +474,8 @@ export default async function handler(
       } as VerificationResponse);
       return;
     } else {
-      // Validation failed - determine specific error code
-      let errorCode = 'VALIDATION_FAILED';
-      
-      if (!validationResult.details?.signatureFound) {
-        errorCode = 'MISSING_SIGNATURE_HEADERS';
-      } else if (validationResult.error?.includes('expired')) {
-        errorCode = 'SIGNATURE_EXPIRED';
-      } else if (validationResult.error?.includes('too old')) {
-        errorCode = 'SIGNATURE_TOO_OLD';
-      } else if (validationResult.error?.includes('too far in the future')) {
-        errorCode = 'SIGNATURE_TIMESTAMP_FUTURE';
-      } else if (!validationResult.details?.directoryFetched) {
-        errorCode = 'KEY_DIRECTORY_FETCH_FAILED';
-      } else if (validationResult.error?.includes('Key has expired')) {
-        errorCode = 'KEY_EXPIRED';
-      } else if (validationResult.error?.includes('Key is not yet valid')) {
-        errorCode = 'KEY_NOT_YET_VALID';
-      } else if (!validationResult.details?.keyMatched) {
-        errorCode = 'KEY_NOT_FOUND';
-      } else if (!validationResult.details?.signatureValid) {
-        errorCode = 'VERIFICATION_FAILED';
-      }
-
       errors.push({
-        code: errorCode,
+        code: validationResult.errorCode ?? 'VALIDATION_FAILED',
         message: validationResult.error || 'Validation failed'
       });
 
